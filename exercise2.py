@@ -1,3 +1,4 @@
+#sample exercise on range for lists
 #difference between  range and range(start,end)
 #ranges from 0 thru 2
 lst1=[i for i in range(3)]
