@@ -1,10 +1,9 @@
-
-
 import sys
 import boto3
 import pymysql
 import logging
 import pymysql.cursors
+import mconfig
 
 
 
@@ -93,6 +92,8 @@ try:
         cursor.execute(sql,('rganesan@beachbody.com','justsomething'))
 
         connection.commit()
-        
+
 finally:
     connection.close()
+
+print(mconfig.tablette)
