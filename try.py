@@ -20,7 +20,11 @@ def DisplayBoard(board):
     print(hed)
     return True
 
-def Enterint(board):
+def EnterMove(board):
+#
+# the function accepts the board current status, asks the user about their move,
+# checks the input and updates the board according to the user's decision
+#
 
     while True:
         try:
@@ -39,7 +43,15 @@ def Enterint(board):
 
     return inp
 
+def MakeListOfFreeFields(board):
+#
+# the function browses the board and builds a list of all the free squares;
+# the list consists of tuples, while each tuple is a pair of row and column numbers
+#
+
+    return
+
 board = [['O','O','X'],['4','5','6'],['O','8','X']]
 
-inp=Enterint(board)
+inp=EnterMove(board)
 print(DisplayBoard(board))
