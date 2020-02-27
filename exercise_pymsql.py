@@ -39,6 +39,7 @@ def runquery(conn, query, log):
     return records
 
 def inserttable(conn, table, data, log):
+        print(data)
         sql="insert into "+table+" ("
         try:
             with conn.cursor() as cur:
@@ -64,7 +65,8 @@ logger.setLevel(logging.INFO)
 conn=initconnect(mconfig.tablette,logger)
 
 if conn != -1:
-    if inserttable(conn,"users",[['email','password'],['rame10566@gmail.com','Secret'],['rgan10566@yahoo.com','pesterme']],logger):
+    list=[['email','password'],['rame10566@gmail.com','Secret'],['rgan10566@yahoo.com','pesterme']]
+    if inserttable(conn,'users',list,logger):
         res=runquery(conn, "select * from users",logger)
         print(res)
 else:
