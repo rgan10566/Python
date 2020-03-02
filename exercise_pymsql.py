@@ -10,12 +10,17 @@ def initconnect(pconfig, log):
 
     try:
 # Connect to the database
-        print("connecting to ",pconfig[0],pconfig[3], pconfig[1],pconfig[4])
+        print("connecting to ",pconfig[0],pconfig[3], pconfig[1],pconfig[2],pconfig[4])
         connection = pymysql.connect(host=pconfig[0],
                                 port=pconfig[3],
                                 user=pconfig[1],
                                 password=pconfig[2],
                                 database=pconfig[4])
+        # connection = pymysql.connect(host='tablette.cluster-culomlubyiwb.us-west-2.rds.amazonaws.com',
+        #                         port=3306,
+        #                         user='appadmin',
+        #                         password='BB_Tabl3tt3',
+        #                         database='tablette')
 
     except:
         log.error("ERROR: Unexpected error: Could not connect to Aurora instance.")
@@ -40,19 +45,24 @@ def runquery(conn, query, log):
 
 def inserttable(conn, table, data, log):
         print(data)
-        sql="insert into "+table+" ("
         try:
             with conn.cursor() as cur:
-                    for i in 1..len(data):
+                    for i in range(1,len(data)):
+                        sql="insert into "+table+" ("
                         for k in range(len(data[0])):
-                            sql = sql + data[0][i]
-                        sql = sql + ") values"
+                            sql = sql + data[0][k]
+                            if k < len(data[0]) -1:
+                                sql = sql + ","
+                        sql = sql + ") values ("
                         for l in range(len(data[i])):
-                            sql = sql + data[i][l]
+                            sql = sql + "'"+data[i][l]+"'"
+                            if l < len(data[i]) - 1:
+                                sql = sql + ","
                         sql = sql + ")"
-                    print(sql)
-                    query=sql
-                    cur.execute(query)
+                        print(sql)
+                        query=sql
+                        cur.execute(query)
+                    conn.commit()
         except pymysql.MySQLError as e:
             log.error(e)
             return False
