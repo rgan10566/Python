@@ -7,8 +7,14 @@ import mconfig
 import base64
 from botocore.exceptions import ClientError
 import json
+import pandas
 
+# this funcuon uses the pandas function to read a csv file and populate the data structure
+def read_csv_file():
+    txtdf = pandas.read_csv('./BB_Scan_Report_20200203.csv', parse_dates=['First Detected','Last Detected','Date Last Fixed'] )
+    return txtdf
 
+# this is copoied from the aws secret manager code and modified slights to use the secret setup to login to RDS database.
 def get_secret():
 
     secret_name = "appadmin"
