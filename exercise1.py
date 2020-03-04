@@ -1,3 +1,4 @@
+#sample exercise on lists.
 #list difference between assignment and copy
 #displays also using negative indexes in list
 

@@ -1,3 +1,16 @@
+
+#Author: Ramesh Ganesan (RG)
+#Contributors:
+#
+#StartDate: March 2nd
+#Last Updated Date: March 4th,2020
+#Last Updated by: RG
+#
+#Purpose: To read a csv file and populate a raw table in AWS Aurora (Tabletter schema on BB Lab)
+#
+#
+
+#importing required Libraries
 import sys
 import boto3
 import pymysql
@@ -6,22 +19,24 @@ import pymysql.cursors
 import mconfig
 import base64
 from botocore.exceptions import ClientError
-from sqlalchemy import create_engine
+#from sqlalchemy import create_engine
 import json
 import pandas
 
-# this funcuon uses the pandas function to read a csv file and populate the data structure
-def read_csv_file():
+# Purpose: This funcuon uses the pandas function to read a csv file and populate the data structure and return back the datastructure
+# parameter: Location of the file with name
+# returns : Populated Datastructure
+
+def read_csv_file(fileloc='/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv'):
     # txtdf = pandas.read_csv('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv', parse_dates=['First Detected','Last Detected','Date Last Fixed'] )
-    txtdf = pandas.read_csv('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv')
+    txtdf = pandas.read_csv(fileloc)
 
     return txtdf
 
-# this is copoied from the aws secret manager code and modified slights to use the secret setup to login to RDS database.
-def get_secret():
-
-    secret_name = "appadmin"
-    region_name = "us-west-2"
+# Purpose: This funcuon uses the aws boto function to read a secret key. The secret key read here allows to connect to the AWS schema Tablette and access tables in the schema.
+# parameter: Takes two parameters, secret_name and region_name. secret_name is the name of the secret key and the region the secret is stored in.
+# returns : returns back the populates string depennding if the secret is a binary secret or not.
+def get_secret(secret_name="appadmin",region_name="us-west-2"):
 
     # Create a Secrets Manager client
     session = boto3.session.Session()
@@ -72,12 +87,16 @@ def get_secret():
     else:
         return decoded_binary_secret
 
+# Purpose: This function uses the pymysql function to connect to the database and returns back the connection.
+# parameter: Takes two parameters, pconfig and log. pconfig is a dummy configuration list that is fetched from a file. This is used only if the secret key call was not sucessful.
+#          : log is the general logger that prints messages.
+# returns : returns back the connection.
 def initconnect(pconfig, log):
 
     try:
 # Connect to the database
 #        print("connecting to ",pconfig[0],pconfig[3], pconfig[1],pconfig[2],pconfig[4])
-        secret = json.loads(get_secret())
+        secret = json.loads(get_secret('appadmin','us-west-2'))
         if secret != '':
             host1=secret["host"]
             user1=secret["username"]
@@ -108,6 +127,11 @@ def initconnect(pconfig, log):
 
     return connection
 
+# Purpose: This function uses the pymysql function to run a query passed to it. you can pass any valid query string.
+# parameter: Takes three  parameters, conn, query and log. conn is the connection to the database created by calling a different function.
+#          : query is the sql query (any valid sql query to fetch data from the connection.
+#          : log is used to log messages.
+# returns : returns back the count of records it has fetched.
 def runquery(conn, query, log):
 
     try:
@@ -123,6 +147,12 @@ def runquery(conn, query, log):
 
     return records
 
+# Purpose: This function uses the pymysql function to insert into a table. The data that needs to be inserted is passed as a list with the first row in the list as the columns of the table that needs to be populated.
+# parameter: Takes four  parameters, conn, table, data  and log. conn is the connection to the database created by calling a different function.
+#          : table is the name of the table where data needs to be inserted
+#          : data is a list of data that needs to be inserted. the first row of the data will contain the columns that needs to be populated.
+#          : log is used to log messages.
+# returns  : returns back true or false.
 def inserttable(conn, table, data, log):
         print(data)
         try:
@@ -149,22 +179,38 @@ def inserttable(conn, table, data, log):
 
         return True
 
-
+# Purpose: This function uses the pymysql function to insert into the table RAW_VULSCAN_DATA. The data that needs to be inserted is passed as a pandas data frame. Thefunction prepares the columns from the labels of the data frame
+# parameter: Takes four  parameters, conn, table, dataframe  and log. conn is the connection to the database created by calling a different function.
+#          : table is the name of the table where data needs to be inserted. this would be RAW_VULSCAN_DATA
+#          : df is the data frame that gets populated by pandas and read from a csv file.
+#          : log is used to log messages.
+# returns  : returns back the count of data inserted.
 def insertvulscan(conn, table, df, log):
         try:
+            count=0
             with conn.cursor() as cur:
-                    cols = ",".join([str(i) for i in df.columns.tolist()])
 
+                    cols = ",".join([str(i) for i in df.columns.tolist()])
                     for i,row in df.iterrows():
-                         sql="insert into RAW_VULSCAN_DATA ("+cols+") VALUES (" + "%s,"*(len(row)-1) + "%s)"
-                         print(sql,tuple(row))
+                         sql="insert into "+table + "("+cols+") VALUES (" + "%s,"*(len(row)-1) + "%s)"
+                         # print(sql,tuple(row))
                          cur.execute(sql,tuple(row))
+                         count=count+1
+                         if count > 1000:
+                             conn.commit()
                     conn.commit()
         except pymysql.MySQLError as e:
             log.error(e)
-            return False
+            print("Error while insert %s",count)
+            return count
 
-        return True
+        return count
+
+# Purpose: This main code. first creates a logger. Then calls initconnect to connect to the AWS RDS schema. Then it calls the pandas function by passing the location of file to be read.
+#        : it then fills all the nan columns with null strings
+#        : it then calls the function insertvulscan to insert into the RAW_VULSCAN_DATA table passing the dataframe it got from the read_csv_file function.
+#        :
+# returns  : returns back the count of data inserted.
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -173,8 +219,11 @@ conn=initconnect(mconfig.tablette,logger)
 
 if conn != -1:
 #    list=[['email','password'],['rame10566@gmail.com','Secret'],['rgan10566@yahoo.com','pesterme']]
-    df=read_csv_file()
-    insertvulscan(conn,'raw_vulscan_data',df,logger)
+    df=read_csv_file('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv')
+    df.fillna("",inplace = True)
+    cnt=insertvulscan(conn,'RAW_VULSCAN_DATA',df,logger)
+    print("%s rows inserted",cnt)
+
 #        res=runquery(conn, "select * from users",logger)
 #        print(res)
 else:
@@ -182,8 +231,7 @@ else:
 
 
 
-
-
+# earlier test code
 # try:
 # # Connect to the database
 #         connection = pymysql.connect(host='tablette.cluster-culomlubyiwb.us-west-2.rds.amazonaws.com',

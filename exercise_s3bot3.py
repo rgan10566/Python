@@ -1,3 +1,4 @@
+#sample exercise on bot3 for s3
 import boto3
 
 # Retrieve the list of existing buckets
