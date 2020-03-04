@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 import json
 
 
+
 def get_secret():
 
     secret_name = "appadmin"
@@ -62,6 +63,8 @@ def get_secret():
         return secret
     else:
         return decoded_binary_secret
+
+=======
 
 def initconnect(pconfig, log):
 
