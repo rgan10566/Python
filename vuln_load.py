@@ -6,10 +6,18 @@ import pymysql.cursors
 import mconfig
 import base64
 from botocore.exceptions import ClientError
+from sqlalchemy import create_engine
 import json
+import pandas
 
+# this funcuon uses the pandas function to read a csv file and populate the data structure
+def read_csv_file():
+    # txtdf = pandas.read_csv('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv', parse_dates=['First Detected','Last Detected','Date Last Fixed'] )
+    txtdf = pandas.read_csv('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv')
 
+    return txtdf
 
+# this is copoied from the aws secret manager code and modified slights to use the secret setup to login to RDS database.
 def get_secret():
 
     secret_name = "appadmin"
@@ -63,8 +71,6 @@ def get_secret():
         return secret
     else:
         return decoded_binary_secret
-
-=======
 
 def initconnect(pconfig, log):
 
@@ -143,16 +149,34 @@ def inserttable(conn, table, data, log):
 
         return True
 
+
+def insertvulscan(conn, table, df, log):
+        try:
+            with conn.cursor() as cur:
+                    cols = ",".join([str(i) for i in df.columns.tolist()])
+
+                    for i,row in df.iterrows():
+                         sql="insert into RAW_VULSCAN_DATA ("+cols+") VALUES (" + "%s,"*(len(row)-1) + "%s)"
+                         print(sql,tuple(row))
+                         cur.execute(sql,tuple(row))
+                    conn.commit()
+        except pymysql.MySQLError as e:
+            log.error(e)
+            return False
+
+        return True
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 conn=initconnect(mconfig.tablette,logger)
 
 if conn != -1:
-    list=[['email','password'],['rame10566@gmail.com','Secret'],['rgan10566@yahoo.com','pesterme']]
-    if inserttable(conn,'users',list,logger):
-        res=runquery(conn, "select * from users",logger)
-        print(res)
+#    list=[['email','password'],['rame10566@gmail.com','Secret'],['rgan10566@yahoo.com','pesterme']]
+    df=read_csv_file()
+    insertvulscan(conn,'raw_vulscan_data',df,logger)
+#        res=runquery(conn, "select * from users",logger)
+#        print(res)
 else:
     print("Connection not establised")
 
