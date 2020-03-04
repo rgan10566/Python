@@ -5,7 +5,6 @@ import logging
 import pymysql.cursors
 import mconfig
 
-
 def initconnect(pconfig, log):
 
     try:
