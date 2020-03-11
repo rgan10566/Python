@@ -22,6 +22,7 @@ from botocore.exceptions import ClientError
 #from sqlalchemy import create_engine
 import json
 import pandas
+import time
 
 # Purpose: This funcuon uses the pandas function to read a csv file and populate the data structure and return back the datastructure
 # parameter: Location of the file with name
@@ -103,8 +104,8 @@ def initconnect(pconfig, log):
             pass1=secret["password"]
             db1=secret["dbname"]
             port1=secret["port"]
-            print(pass1)
-            print("fetched from Secret")
+            # print(host1,user1,pass1,db1,port1)
+            # print("fetched from Secret")
         else:
             pass1=pconfig[2]
             print("passed parameter")
@@ -164,6 +165,7 @@ def inserttable(conn, table, data, log):
                             if k < len(data[0]) -1:
                                 sql = sql + ","
                         sql = sql + ") values ("
+                        print(sql)
                         for l in range(len(data[i])):
                             sql = sql + "'"+data[i][l]+"'"
                             if l < len(data[i]) - 1:
@@ -174,6 +176,7 @@ def inserttable(conn, table, data, log):
                         cur.execute(query)
                     conn.commit()
         except pymysql.MySQLError as e:
+            print(sql)
             log.error(e)
             return False
 
@@ -185,26 +188,47 @@ def inserttable(conn, table, data, log):
 #          : df is the data frame that gets populated by pandas and read from a csv file.
 #          : log is used to log messages.
 # returns  : returns back the count of data inserted.
-def insertvulscan(conn, table, df, log):
+def insertvulscan(conn, schema, table, df, log):
         try:
-            count=0
+
             with conn.cursor() as cur:
 
                     cols = ",".join([str(i) for i in df.columns.tolist()])
+                    count=tcount=0
+                    stime=time.time()
                     for i,row in df.iterrows():
-                         sql="insert into "+table + "("+cols+") VALUES (" + "%s,"*(len(row)-1) + "%s)"
-                         # print(sql,tuple(row))
+                         sql="insert into "+schema+"."+table + "("+cols+") VALUES (" + "%s,"*(len(row)-1) + "%s)"
+                         print(sql,tuple(row))
                          cur.execute(sql,tuple(row))
                          count=count+1
-                         if count > 1000:
+                         if count >= 500:
+                             tcount=tcount+count
+                             etime=time.time()
+                             print("Processed %d records - Total processed %d in %s time "%(count, i+1, time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
                              conn.commit()
+                             count=0
                     conn.commit()
+                    etime=time.time()
+                    print("Total processed %d records in %s time "%(i+1,time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
         except pymysql.MySQLError as e:
             log.error(e)
-            print("Error while insert %s",count)
+            print("Error while insert %s"%str(count))
             return count
 
-        return count
+        # except pymysql.Warning as e:
+        #     log.error(e)
+        #     print("Warning while insert %s"%str(i))
+        #     continue
+
+        return i+1
+
+def setlog(logfilename, level):
+    return True
+
+
+def create_latest_scan():
+
+    return
 
 # Purpose: This main code. first creates a logger. Then calls initconnect to connect to the AWS RDS schema. Then it calls the pandas function by passing the location of file to be read.
 #        : it then fills all the nan columns with null strings
@@ -216,17 +240,31 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 conn=initconnect(mconfig.tablette,logger)
-
+file=mconfig.file[0]+mconfig.file[1]
+print(file)
 if conn != -1:
-#    list=[['email','password'],['rame10566@gmail.com','Secret'],['rgan10566@yahoo.com','pesterme']]
-    df=read_csv_file('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv')
+# read the CSV file and insert into table
+    df=read_csv_file(file)
     df.fillna("",inplace = True)
-    cnt=insertvulscan(conn,'RAW_VULSCAN_DATA',df,logger)
+    rec = runquery(conn, 'truncate table '+'RAW_VULSCAN_DATA', logger)
+    cnt=insertvulscan(conn,'tablette','RAW_VULSCAN_DATA',df,logger)
     print("%s rows inserted",cnt)
+#select table count for the RAW_VULSCAN_DATA
+    rec = runquery(conn, 'select count(1) from '+'RAW_VULSCAN_DATA', logger)
+    print("Total number of records in RAW_VULSCAN_DATA is %10d"%rec[0])
 
-#        res=runquery(conn, "select * from users",logger)
-#        print(res)
+#create table LATEST_VULSCAN from the uploaded table
+    rec=runquery(conn,'drop table tablette.LATEST_VULSCAN',logger)
+
+    rec=runquery(conn,'create table tablette.LATEST_VULSCAN as select *, now() RUN_DATE FROM RAW_VULSCAN_DATA',logger)
+    print("Latest Vulscan table created",rec)
+
+    rec=runquery(conn, 'insert into tablette.ASSETS (ip, dns) select distinct ip,dns from tablette.LATEST_VULSCAN v where not exists (select ip from tablette.ASSETS a where a.ip=v.ip)',logger)
+
+    rec = runquery(conn, 'select count(1) from '+'LATEST_VULSCAN', logger)
+    print("Total number of records in LATEST_VULSCAN is %10d"%rec[0])
 else:
+
     print("Connection not establised")
 
 
