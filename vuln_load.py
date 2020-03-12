@@ -165,7 +165,7 @@ def inserttable(conn, table, data, log):
                             if k < len(data[0]) -1:
                                 sql = sql + ","
                         sql = sql + ") values ("
-                        print(sql)
+                        # print(sql)
                         for l in range(len(data[i])):
                             sql = sql + "'"+data[i][l]+"'"
                             if l < len(data[i]) - 1:
@@ -198,7 +198,7 @@ def insertvulscan(conn, schema, table, df, log):
                     stime=time.time()
                     for i,row in df.iterrows():
                          sql="insert into "+schema+"."+table + "("+cols+") VALUES (" + "%s,"*(len(row)-1) + "%s)"
-                         print(sql,tuple(row))
+                         # print(sql,tuple(row))
                          cur.execute(sql,tuple(row))
                          count=count+1
                          if count >= 500:
@@ -254,10 +254,10 @@ if conn != -1:
     print("Total number of records in RAW_VULSCAN_DATA is %10d"%rec[0])
 
 #create table LATEST_VULSCAN from the uploaded table
-    rec=runquery(conn,'drop table tablette.LATEST_VULSCAN',logger)
+    # rec=runquery(conn,'drop table if exists tablette.LATEST_VULSCAN',logger)
 
-    rec=runquery(conn,'create table tablette.LATEST_VULSCAN as select *, now() RUN_DATE FROM RAW_VULSCAN_DATA',logger)
-    print("Latest Vulscan table created",rec)
+    rec=runquery(conn,'insert into tablette.LATEST_VULSCAN select *, now() RUN_DATE FROM RAW_VULSCAN_DATA',logger)
+    print("Latest Vulscan table inserted",rec)
 
     rec=runquery(conn, 'insert into tablette.ASSETS (ip, dns) select distinct ip,dns from tablette.LATEST_VULSCAN v where not exists (select ip from tablette.ASSETS a where a.ip=v.ip)',logger)
 

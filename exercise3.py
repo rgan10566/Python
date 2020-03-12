@@ -1,3 +1,4 @@
+#sample exercise on boolean
 #boolean operations
 a=True
 b=False

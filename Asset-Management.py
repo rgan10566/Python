@@ -3,6 +3,7 @@
 # Date : February, 7
 # Assumptions: The vulnerabilty scan is provided as a csv and cleaned up. it contains only needed relevant columns and no heading summarizations or footer summarizations
 #
+# the dataase accessed is not more there. 
 import boto3
 import pandas
 
