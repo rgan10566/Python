@@ -3,7 +3,7 @@
 #Contributors:
 #
 #StartDate: March 2nd
-#Last Updated Date: March 4th,2020
+#Last Updated Date: March 25th,2020
 #Last Updated by: RG
 #
 #Purpose: To read a csv file and populate a raw table in AWS Aurora (Tabletter schema on BB Lab)
@@ -19,6 +19,7 @@ import pymysql.cursors
 import mconfig
 import base64
 from botocore.exceptions import ClientError
+from operator import itemgetter
 #from sqlalchemy import create_engine
 import json
 import pandas
@@ -108,7 +109,7 @@ def initconnect(pconfig, log):
             # print("fetched from Secret")
         else:
             pass1=pconfig[2]
-            print("passed parameter")
+            # print("passed parameter")
 
         connection = pymysql.connect(host=host1,
                                 port=port1,
@@ -142,6 +143,7 @@ def runquery(conn, query, log):
                 result = cur.fetchall()
                 for row in result:
                     records.append(row)
+                conn.commit()
     except pymysql.MySQLError as e:
         log.error(e)
         return []
@@ -230,6 +232,123 @@ def create_latest_scan():
 
     return
 
+def checkmeta(conn,file, logger):
+    try:
+        sql="select LOADID, FILENAME, STATUS, RUNDATE from tablette.METADATA where FILENAME ='"+file+"'"
+        rec=runquery(conn,sql,logger)
+
+    except:
+        logger.error("ERROR: Unexpected Error: Something went wrong in the querying of METADATA Table")
+        logger.error(sql)
+        retval = -1
+
+    else:
+
+        if len(rec) == 0:
+            try:
+                sql="insert into tablette.METADATA(FILENAME,RUNDATE,LOADDATE,STATUS) VALUES ('"+file+"',"+"'2020-02-12 00:00:00',"+"'2020-02-12 00:00:00',"+"'S')"
+                r=runquery(conn,sql,logger)
+                retval = 1
+            except:
+                logger.error("Error: Unexpected Error: Something went wrong in inserting into METADATA")
+                logger.error(sql)
+                retval =  -1
+        elif len(rec) > 1:
+            logger.error("Error: DATA Error: Multiple rows found in METADATA table for the same file..Please manually correct")
+            retval = -1
+        elif len(rec) == 1:
+            Statelem = rec[0][2]
+            Rundtelem = rec[0][3]
+            Loadelem = rec[0][0]
+            print("Status",Statelem)
+            print("Rundate",str(Rundtelem))
+            if Statelem == 'S':
+                logger.error("Warning: The file is still loading. Please dont try to rerun the file")
+                retval = 0
+            elif Statelem == 'C':
+                print("The file is already loaded..")
+                inp=input("Do you want to reload the file? ")
+                if inp == 'Y' or inp == 'y':
+                    try:
+                        sql="delete from tablette.PREV_VULSCAN_DATA where rundate = '"+str(Rundtelem)+"'"
+                        r=runquery(conn,sql,logger)
+                        print(r)
+                    except:
+                        logger.error("Error: Unexpected Error: Unable to delete from PREV_VULSCAN_DATA")
+                        logger.error(pymysql.errorsql)
+                        retval = -1
+                    else:
+                        try:
+                            sql="Update tablette.METADATA set status = 'R', REPROCESSTATUS='S', REPROCESSDATE='2020-03-25 00:00:00' where LOADID ="+str(Loadelem)
+                            r=runquery(conn,sql,logger)
+                        except:
+                            logger.error("Error: Unexpected Error: Unable to update METADATA")
+                            retval=-1
+                        else:
+                            retval=1
+                else:
+                    logger.error("Warning: The file is already loaded and you choose not to Reload")
+                    retval=0
+    return retval
+
+def loadvulscan(conn, logger):
+
+##  Read from the mconfig file parameter
+    file=mconfig.file[0]+mconfig.file[1]
+
+    df=read_csv_file(file)
+    df.fillna("",inplace = True)
+##
+##  Read from the mconfig file parameter
+    rundate=mconfig.file[2]
+
+    # print(file)
+    # print(rundate)
+##
+##  check if the file has already been loaded into the metadata
+##  if done, then ask if it needs to be reloaded
+##  delete the entries from previous vulscan and reload and reprocess
+##  if not, then load the first time and update metadata
+##
+    checkmeta(conn,mconfig.file[1], logger)
+
+##  start the loading into raw vulscan. before loading, insert into previous Vulscan
+##  truncate the raw vulscan data tables
+##  load from csv to raw vulscan
+
+    # cnt=runquery(conn,'insert into tablette.PREVIOUS_VULSCAN (ip,dns,team,netbios,trackingmethod,os,ipstatus,qid,title,vulnstatus,\
+    # type,severity,port,protocol,fqdn,ssllayer,firstdetected,lastdetected,timesdetected,datelastfixed,\
+    # cveid,vendorreference,bugtraqid,threat,impact,solution,exploitability,associatedmalware,results,pcivuln,category) \
+    # select ip,dns,team,netbios,trackingmethod,os,ipstatus,qid,title,vulnstatus,type,severity,port,protocol,fqdn,\
+    # ssllayer,firstdetected,lastdetected,timesdetected,datelastfixed,cveid,vendorreference,bugtraqid,threat,impact,solution,\
+    # exploitability,associatedmalware,results,pcivuln,category, rundate from tablette.RAW_VULSCAN_DATA',logger)
+    #
+    # print("Previous Vulscan table inserted",cnt)
+    #
+    # rec = runquery(conn, 'truncate table '+'RAW_VULSCAN_DATA', logger)
+    #
+    # cnt=insertvulscan(conn,'tablette','RAW_VULSCAN_DATA',df,logger)
+    # print("%s rows inserted",cnt)
+    cnt=1
+    return cnt
+
+def loadnewasset(conn, logger):
+## identify new assets and add them.
+## report the list of newly added ASSETS
+    try:
+        rec=runquery(conn, 'insert into tablette.ASSETS (ip, dns) select distinct ip,dns from tablette.RAW_VULSCAN_DATA v where not exists (select ip from tablette.ASSETS a where a.ip=v.ip)',logger)
+    except:
+        logger.error("Error: Unknown Error: Unable to insert into ASSETS Table")
+        return -1
+    return 0
+
+def loadqid(conn, logger):
+## identify any new qid that has come up.
+## add them to the qid master table with title
+
+    return
+
+
 # Purpose: This main code. first creates a logger. Then calls initconnect to connect to the AWS RDS schema. Then it calls the pandas function by passing the location of file to be read.
 #        : it then fills all the nan columns with null strings
 #        : it then calls the function insertvulscan to insert into the RAW_VULSCAN_DATA table passing the dataframe it got from the read_csv_file function.
@@ -240,34 +359,39 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 conn=initconnect(mconfig.tablette,logger)
-file=mconfig.file[0]+mconfig.file[1]
-print(file)
+# file=mconfig.file[0]+mconfig.file[1]
+# rundate=mconfig.file[2]
+# print(file)
+# print(rundate)
 if conn != -1:
 # read the CSV file and insert into table
-    df=read_csv_file(file)
-    df.fillna("",inplace = True)
-    rec = runquery(conn, 'truncate table '+'RAW_VULSCAN_DATA', logger)
-    cnt=insertvulscan(conn,'tablette','RAW_VULSCAN_DATA',df,logger)
-    print("%s rows inserted",cnt)
+
+    # df=read_csv_file(file)
+    # df.fillna("",inplace = True)
+    # cnt=runquery(conn,'insert into tablette.PREVIOUS_VULSCAN (ip,dns,team,netbios,trackingmethod,os,ipstatus,qid,title,vulnstatus,\
+    # type,severity,port,protocol,fqdn,ssllayer,firstdetected,lastdetected,timesdetected,datelastfixed,\
+    # cveid,vendorreference,bugtraqid,threat,impact,solution,exploitability,associatedmalware,results,pcivuln,category) \
+    # select ip,dns,team,netbios,trackingmethod,os,ipstatus,qid,title,vulnstatus,type,severity,port,protocol,fqdn,\
+    # ssllayer,firstdetected,lastdetected,timesdetected,datelastfixed,cveid,vendorreference,bugtraqid,threat,impact,solution,\
+    # exploitability,associatedmalware,results,pcivuln,category, rundate from tablette.RAW_VULSCAN_DATA',logger)
+    # print("Previous Vulscan table inserted",cnt)
+    # rec = runquery(conn, 'truncate table '+'RAW_VULSCAN_DATA', logger)
+    # cnt=insertvulscan(conn,'tablette','RAW_VULSCAN_DATA',df,logger)
+    # print("%s rows inserted",cnt)
 #select table count for the RAW_VULSCAN_DATA
+    loadvulscan(conn,logger)
     rec = runquery(conn, 'select count(1) from '+'RAW_VULSCAN_DATA', logger)
     print("Total number of records in RAW_VULSCAN_DATA is %10d"%rec[0])
 
 #create table LATEST_VULSCAN from the uploaded table
     # rec=runquery(conn,'drop table if exists tablette.LATEST_VULSCAN',logger)
 
-    rec=runquery(conn,'insert into tablette.LATEST_VULSCAN select *, now() RUN_DATE FROM RAW_VULSCAN_DATA',logger)
-    print("Latest Vulscan table inserted",rec)
 
-    rec=runquery(conn, 'insert into tablette.ASSETS (ip, dns) select distinct ip,dns from tablette.LATEST_VULSCAN v where not exists (select ip from tablette.ASSETS a where a.ip=v.ip)',logger)
-
-    rec = runquery(conn, 'select count(1) from '+'LATEST_VULSCAN', logger)
-    print("Total number of records in LATEST_VULSCAN is %10d"%rec[0])
 else:
 
     print("Connection not establised")
 
-
+conn.close()
 
 # earlier test code
 # try:
