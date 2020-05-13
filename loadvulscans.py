@@ -277,18 +277,23 @@ def insertmeta(conn, file, scandate, logger):
 def updatemeta(conn, status, loadelem, timetaken, logger):
 
     try:
+        retval = 0
         if status == 'RS':
             sql="Update tablette.METADATA set status = '"+status+"', reprocessdate = '"+todate+"' where LOADID ="+str(Loadelem)
+            retval=loadelem
         elif status == 'LS':
             sql="Update tablette.METADATA set status = '"+status+"', loaddate = '"+todate+"' where LOADID ="+str(Loadelem)
+            retval=loadelem
         elif status == 'LE':
             sql="Update tablette.METADATA set status = 'C', timetaken = '"+str(timetaken)+"' where LOADID ="+str(Loadelem)
+            retval=loadelem
         elif status == 'RE':
             sql="Update tablette.METADATA set status = 'C', reprocesstime = '"+str(timetaken)+"' where LOADID ="+str(Loadelem)
+            retval=loadelem
         elif status == 'AR':
             sql="Update tablette.METADATA set status = 'A' where LOADID ="+str(Loadelem)
+            retval=loadelem
         rec=runquery(conn,sql,logger)
-        retval = 1
     except:
         logger.error("Error: Unexpected Error: Unable to update metadata")
         logger.error(pymysql.errorsql)
@@ -307,13 +312,15 @@ def reloadmeta(conn, file, scandate, loadelem, statelem, rundatelem, logger):
     inp=input("Do you want to reload the file? ")
     if inp == 'Y' or inp == 'y':
         try:
+            retval=0
             if statelem == 'A':
                 sql="delete from tablette.VULSCAN_ARCHIVE where loadid = "+str(loadelem)
+                retval=loadelem
             elif statelem == 'C':
                 sql="delete from tablette.RAW_VULSCAN_DATA where loadid = "+str(loadelem)
+                retval=loadelem
 
             r=runquery(conn,sql,logger)
-            retval=1
             retval=updatemeta(conn, 'RS', loadelem, rundatelem, logger)
         except:
             logger.error("Error: Unexpected Error: Unable to delete from VULSCAN_ARCHIVE")
@@ -335,24 +342,29 @@ def reloadmeta(conn, file, scandate, loadelem, statelem, rundatelem, logger):
 def checkmeta(conn, file, scandate, logger):
     try:
         rec = querymeta(conn, file, 0, logger)
+        retval = dict()
         if not rec:
             logger.info("No Records found..loading file for the first time")
-            insertmeta(conn,file, scandate, logger)
+            loadid = insertmeta(conn,file, scandate, logger)
+            retval = ('INSERTED',loadid)
         else:
             if len(rec) > 1:
                 logger.error("Something went wrong. Metadata seems to have multiple loads of this file")
+                retval = ('MANUAL INTERVENTION NEEDED',0)
             elif len(rec) == 1:
                 logger.info(rec)
                 if rec[0][2] == 'LS' or rec[0][2] == 'RS':
                     logger.error("File is still loading. Do not attempt to reload the file now or correct manually to reload")
+                    retval = ('OTHER LOAD PROCESS RUNNING',0)
                 elif rec[0][2] == 'A':
                     logger.info("INFO File has been already reloaded")
-                    reloadmeta(conn,file, scandate, rec[0][0], rec[0][2], 0, logger)
+                    loadid = reloadmeta(conn,file, scandate, rec[0][0], rec[0][2], 0, logger)
+                    retval = ('RELOADING',loadid)
     except:
         logger.error("ERROR: Unexpected Error: Something went wrong in the querying of METADATA Table")
         logger.error(sql)
-        retval = -1
-    return rec
+        retval = ('ERROR',-1)
+    return retval
 
 ######################### END of Metadata Functions #######################################
 
@@ -367,6 +379,7 @@ def checkmeta(conn, file, scandate, logger):
 # returns  : returns back the count of data inserted.
 def insertvulscan(conn, schema, table, df, loadelem, log):
         try:
+# when can you start the insert? should there be a check for metadata status?
             rundate=datetime.strftime(datetime.now()
             with conn.cursor() as cur:
 
@@ -406,10 +419,13 @@ def insertvulscan(conn, schema, table, df, loadelem, log):
 #          : df is the data frame that gets populated by pandas and read from a csv file.
 #          : log is used to log messages.
 # returns  : returns back the count of data inserted.
-def inserttoarchive(conn, schema, table, df, log):
+def inserttoarchive(conn, schema, stable, ttable, log):
     try:
+# 5/4/2020 notes
+# when can we start insert into archive? should we check if the status on metadata is correct before insertsing
+# do we insert into archive directly after the insert into raw vulscan?
         stime=time.time()
-        sql="insert into "+schema+"."+table + " as select * from RAW_VULSCAN_DATA"
+        sql="insert into "+schema+"."+ttable + " as select * from "+schema+"."+stable
         rec=runquery(conn,sql,logger)
         etime=time.time()
         retval=1
@@ -421,6 +437,26 @@ def inserttoarchive(conn, schema, table, df, log):
         retval = -1
 
     return retval
+
+def loadnewassets(conn, rundate, logger):
+## identify new assets and add them.
+## report the list of newly added ASSETS
+    try:
+        rec=runquery(conn, "insert into tablette.ASSETS (ip, dns, OS, trackingmethod, scandate) select distinct ip,dns,os, trackingmethod, '"+rundate+"' from tablette.RAW_VULSCAN_DATA v where not exists (select ip from tablette.ASSETS a where a.ip=v.ip)",logger)
+    except:
+        logger.error("Error: Unknown Error: Unable to insert into ASSETS Table")
+        return -1
+    return 0
+
+def loadnewqids(conn, rundate, logger):
+## identify any new qid that has come up.
+## add them to the qid master table with title
+    try:
+        rec=runquery(conn, "INSERT INTO tablette.QID(QID,TITLE,VULNSTATUS,TYPE,SEVERITY,CVEID,VENDORREFERENCE,PCIVULN,CATEGORY,THREAT,IMPACT,SOLUTION,STATUS,SCANDATE) select distinct QID,TITLE,VULNSTATUS,TYPE,SEVERITY,CVEID,VENDORREFERENCE,PCIVULN,CATEGORY,THREAT,IMPACT,SOLUTION,'New','"+rundate+"' from tablette.RAW_VULSCAN_DATA v where QID is not null and not exists (select qid from tablette.QID a where a.qid=v.qid)",logger)
+    except:
+        logger.error("Error: Unknown Error: Unable to insert into QID Table")
+        return -1
+    return 0
 
 # Purpose: This function loads the csv file into the RAW_VULSCAN_DATA table. it calls several other functions.
 # parameter: Takes two parameters, conn, logger
@@ -440,7 +476,7 @@ def loadvulscan(conn, logger):
     file=mconfig.file[0]+mconfig.file[1]
     scandate=mconfig.file[2]
 
-## call read_csv_file to load into records
+## call read_csv_file to load into records in memory
     df=read_csv_file(file)
     df.fillna("",inplace = True)
 ##
@@ -454,36 +490,45 @@ def loadvulscan(conn, logger):
 ##  delete the entries from previous vulscan and reload and reprocess
 ##  if not, then load the first time and update metadata
 ##
-    checkmeta(conn,mconfig.file[1], scandate,logger)
+    rval = checkmeta(conn,mconfig.file[1], scandate,logger)
+    if rval[0] == 'INSERTING' or rval[0] == 'RELOADING':
+        loadelem=rval[1]
 
-##  start the loading into raw vulscan. before loading, insert into previous Vulscan
-##  truncate the raw vulscan data tables
-##  load from csv to raw vulscan
+## check the status once again to make sure of the metadata. if status right then load into Vulscan
+## if the metadata has been updated properly then the status should be in LS (Load Start) or RS (Reload start)
+        metarec = querymeta(conn, mconfig.file[1], loadelem, logger)
+        if len(metarec) == 1 and (metarec[2] == 'LS' or metarec[2] == 'RS'):
+            retval = inserttovulscan(conn, 'Tablette', 'RAW_VULSCAN_DATA', df, loadelem, log)
+            if retval > 0:
+## update metadata to indicate that Archive needs to start
+                updatemeta(conn, 'AR', loadelem, timetaken, logger)
+                inserttoarchive(conn, 'Tablette', 'RAW_VULSCAN_DATA',  'VULSCAN_ARCHIVE', logger)
+## uodate meatadata to indicate thar archive is completed
+                updatemeta()
 
-    inserttovulscan(conn, schema, table, df, loadelem, log)
-    inserttoarchive(conn, scandate, logger)
+## now before you call to update assets and qid esure that the metadata status shows archive ended.
+## then load assets and qid
+##          metarec = querymeta(conn, mconfig.file[1], loadelem, logger)
+##          if len(metarec) == 1 and (metarec[2] == 'A':
+                loadnewassets()
+                loadnewqids()
+## at the end update status to 'C'
+##              updatemeta()
+
+
+##  after insertion into vulscan tables then new asset need to be loaded with unique asset id.
+##  after insertion into vulscan also insert new qid in the vulscan qid master
+
+
+    else:
+        print("Unable to load...please check metadata")
+
 
     return 1
 
-def loadnewasset(conn, rundate, logger):
-## identify new assets and add them.
-## report the list of newly added ASSETS
-    try:
-        rec=runquery(conn, "insert into tablette.ASSETS (ip, dns, rundate) select distinct ip,dns,'"+rundate+"' from tablette.RAW_VULSCAN_DATA v where not exists (select ip from tablette.ASSETS a where a.ip=v.ip)",logger)
-    except:
-        logger.error("Error: Unknown Error: Unable to insert into ASSETS Table")
-        return -1
-    return 0
 
-def loadnewqid(conn, rundate, logger):
-## identify any new qid that has come up.
-## add them to the qid master table with title
-    try:
-        rec=runquery(conn, "insert into tablette.QID (QID, TITLE,  STATUS, rundate) select distinct QID,TITLE,'New','"+rundate+"' from tablette.RAW_VULSCAN_DATA v where QID is not null and not exists (select qid from tablette.QID a where a.qid=v.qid)",logger)
-    except:
-        logger.error("Error: Unknown Error: Unable to insert into QID Table")
-        return -1
-    return 0
+
+
 
 
 ## MAIN ##
