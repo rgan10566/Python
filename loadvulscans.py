@@ -21,14 +21,30 @@
 #   after the raw file load is successful load it into the archive vulscan table
 #   load the assets into the master asset table
 #   load the qid into thr master table
+#   Attributes:
+#
 #   Status on METADATA
-#           LS - Load Start
-#           LE - Load End
-#           RS - Reload Start
-#           RE - Reload End
-#           C  - Complete after the vulscan raw is loaded
-#           AR - Start archive loading
-#           A  - Archive vulscan load is complete
+#           I - Initiated load
+#           R - Initiated Reload
+#           L - Raw Vulscan loaded
+#           P - RAW Vulscan reload complete
+#           C - Completed
+#   Load/Reloadstatus:
+#           LS  - New load started
+#           RS  - Reload Started
+#           LE  - New Load Ennded
+#           RE  - Reload ended
+#           AS  - Archival Started
+#           AE  - Archival Ended
+#           LA  - Loading Asset
+#           LQ  - Loading QID
+#           FL  - Fully Load complete
+#           DR  - Deleing Raw Vulscan entries
+#           DA  - Deleting Archive Entries
+#   Additional status on METADATA
+#           AA - New Assets added to the Asset master table but QID not loaded
+#           QA - New QID added to the QID master table => this should follow AA. Assets and QID loaded
+
 ##
 
 #importing required Libraries
@@ -230,16 +246,28 @@ def runquery(conn, query, log):
 ################### A function to insert into the metadata table
 # Purpose: This function merely queriesthe metadata table and returns te record.
 # parameter: Takes these parameters, conn, file, scandata, logger.
-# returns : returns back the loadid.
+#           conn is the connection passed that was already created
+#           file is the name of the file. the function can query the metadata table by filename or loadid
+#           loadid is the unique record id. if the metadata is already there then that is what should be used to query the table.
+#                   we should avoid loading the files multiple time and only one record should exists for a file.
+#                   and the same recrods should be updated.
+#           logger is the name of the logfile where errors and info are written to.
+# returns : returns back the complete record of the metadata values fetched.
+#           rundate is the loading date and would always be the date on which the program is first run for a file.
+#           scandate is the scan date of the file in the metadata.
+#           status would only take values of 'I', 'L', 'C' and denotes the processing of the file (for fresh loads or reloads)
+#           loadstats is the different status of the loads and would take value of 'LS','LE','AS','AE','LA','LQ','FL'.
+#           reprocessdate is the rundate for reprocessing.
+#           reprocessstatus can take the value of 'RS','RE','AS','AE','LA','LQ','FL'
 ################################################
-def querymeta(conn, file, loadelem, logger):
+def querymeta(conn, file, loadelem=0, logger):
 
     try:
         rec=[]
         if loadelem == 0 or not loadelem:
-            sql="select LOADID, FILENAME, STATUS, SCANDATE, RUNDATE from tablette.METADATA where FILENAME ='"+file+"'"
+            sql="SELECT LOADID,FILENAME,RUNDATE,SCANDATE,STATUS,LOADSTATUS,REPROCESSDATE,REPROCESSTATUS FROM tablette.METADATA where FILENAME ='"+file+"'"
         else:
-            sql="select LOADID, FILENAME, STATUS, SCANDATE, RUNDATE from tablette.METADATA where loadid ='"+str(loadelem)+"'"
+            sql="SELECT LOADID,FILENAME,RUNDATE,SCANDATE,STATUS,LOADSTATUS,REPROCESSDATE,REPROCESSTATUS FROM tablette.METADATA where LOADID ='"+str(loadelem)+"'"
 
         metarec=runquery(conn,sql,logger)
         logger.info("Record found"+rec)
@@ -257,7 +285,7 @@ def insertmeta(conn, file, scandate, logger):
 
     try:
         # sql="insert into tablette.METADATA(FILENAME,STATUS) VALUES ('"+file+"','"+scandate+"','"+todate+"','LS')"
-        sql="insert into tablette.METADATA(FILENAME,STATUS,RUNDATE,SCANDATE) VALUES ('"+file+"','LS','"+scandate+"','"+datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S')+"')"
+        sql="insert into tablette.METADATA(FILENAME,STATUS,LOADSTATUS,RUNDATE,SCANDATE) VALUES ('"+file+"','I','LS','"+scandate+"','"+datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S')+"')"
         r=runquery(conn,sql,logger)
         logger.info("INFO: insert into metadata Executed: "+sql)
 
@@ -274,24 +302,15 @@ def insertmeta(conn, file, scandate, logger):
 # parameter: Takes these parameters, conn, status, loadelem (loadid), timetaken to load,logger.
 # returns : returns back the loadid.
 ################################################
-def updatemeta(conn, status, loadelem, timetaken, logger):
+def updatemeta(conn, status, loadelem, timetaken=0.0, logger):
 
     try:
         retval = 0
         if status == 'RS':
             sql="Update tablette.METADATA set status = '"+status+"', reprocessdate = '"+todate+"' where LOADID ="+str(Loadelem)
             retval=loadelem
-        elif status == 'LS':
-            sql="Update tablette.METADATA set status = '"+status+"', loaddate = '"+todate+"' where LOADID ="+str(Loadelem)
-            retval=loadelem
-        elif status == 'LE':
-            sql="Update tablette.METADATA set status = 'C', timetaken = '"+str(timetaken)+"' where LOADID ="+str(Loadelem)
-            retval=loadelem
-        elif status == 'RE':
-            sql="Update tablette.METADATA set status = 'C', reprocesstime = '"+str(timetaken)+"' where LOADID ="+str(Loadelem)
-            retval=loadelem
         elif status == 'AR':
-            sql="Update tablette.METADATA set status = 'A' where LOADID ="+str(Loadelem)
+            sql="Update tablette.METADATA set status = '"+status+"' where LOADID ="+str(Loadelem)
             retval=loadelem
         rec=runquery(conn,sql,logger)
     except:
@@ -306,21 +325,22 @@ def updatemeta(conn, status, loadelem, timetaken, logger):
 # parameter: Takes these parameters, conn, status, loadelem (loadid), timetaken to load,logger.
 # returns : returns back the loadid.
 ################################################
-def reloadmeta(conn, file, scandate, loadelem, statelem, rundatelem, logger):
+def reloadmeta(conn, file, scandate, loadelem, rundatelem, logger):
 
     print("The file is already loaded..")
-    inp=input("Do you want to reload the file? ")
+    inp=input("Confirm Reload file by entering Y/y:")
     if inp == 'Y' or inp == 'y':
         try:
             retval=0
-            if statelem == 'A':
-                sql="delete from tablette.VULSCAN_ARCHIVE where loadid = "+str(loadelem)
-                retval=loadelem
-            elif statelem == 'C':
-                sql="delete from tablette.RAW_VULSCAN_DATA where loadid = "+str(loadelem)
-                retval=loadelem
-
+            sql="delete from tablette.VULSCAN_ARCHIVE where loadid = "+str(loadelem)
             r=runquery(conn,sql,logger)
+            logger.info("INFO: delete from VULSCAN_ARCHIVE Executed: "+sql)
+
+            sql="delete from tablette.RAW_VULSCAN_DATA where loadid = "+str(loadelem)
+            r=runquery(conn,sql,logger)
+            logger.info("INFO: delete from RAW_VULSCAN_DATA Executed: "+sql)
+
+            retval=loadelem
             retval=updatemeta(conn, 'RS', loadelem, rundatelem, logger)
         except:
             logger.error("Error: Unexpected Error: Unable to delete from VULSCAN_ARCHIVE")
@@ -349,17 +369,25 @@ def checkmeta(conn, file, scandate, logger):
             retval = ('INSERTED',loadid)
         else:
             if len(rec) > 1:
-                logger.error("Something went wrong. Metadata seems to have multiple loads of this file")
+                logger.error("Something went wrong. Metadata seems to have multiple loads of this file. please correct manually")
                 retval = ('MANUAL INTERVENTION NEEDED',0)
             elif len(rec) == 1:
                 logger.info(rec)
-                if rec[0][2] == 'LS' or rec[0][2] == 'RS':
-                    logger.error("File is still loading. Do not attempt to reload the file now or correct manually to reload")
-                    retval = ('OTHER LOAD PROCESS RUNNING',0)
-                elif rec[0][2] == 'A':
+                stat=rec[0][4]
+                lstat=rec[0][5]
+                rstat=rec[0][7]
+                if stat='C':
                     logger.info("INFO File has been already reloaded")
-                    loadid = reloadmeta(conn,file, scandate, rec[0][0], rec[0][2], 0, logger)
+                    oadid = reloadmeta(conn,file, scandate, rec[0][0], rec[0][2], 0, logger)
                     retval = ('RELOADING',loadid)
+                elif stat=='I' or stat=='R':
+                    logger.error("Error: File is in the process of reloading and we cannot reprocess the file again")
+                    retval = ('MANUAL INTERVENTION NEEDED',0)
+                elseif stat=='L' or stat=='P':
+## We can in the future expand this to only load archive or asset or qid - to be coded later
+## for now we pretend that all loads will be a full load and if this is partiall done then it will be manually loaded
+                    logger.error("Error: File is partially loaded. Canot reprocess the file again.")
+                    retval = ('MANUAL INTERVENTION NEEDED',0)
     except:
         logger.error("ERROR: Unexpected Error: Something went wrong in the querying of METADATA Table")
         logger.error(sql)
@@ -490,6 +518,7 @@ def loadvulscan(conn, logger):
 ##  delete the entries from previous vulscan and reload and reprocess
 ##  if not, then load the first time and update metadata
 ##
+    starttime=time.time()
     rval = checkmeta(conn,mconfig.file[1], scandate,logger)
     if rval[0] == 'INSERTING' or rval[0] == 'RELOADING':
         loadelem=rval[1]
@@ -498,22 +527,29 @@ def loadvulscan(conn, logger):
 ## if the metadata has been updated properly then the status should be in LS (Load Start) or RS (Reload start)
         metarec = querymeta(conn, mconfig.file[1], loadelem, logger)
         if len(metarec) == 1 and (metarec[2] == 'LS' or metarec[2] == 'RS'):
+            if metarec[2] == 'LS':
+                endstate='LE'
+            elif merarec[2] == 'RS':
+                endstate='RE'
             retval = inserttovulscan(conn, 'Tablette', 'RAW_VULSCAN_DATA', df, loadelem, log)
+            endtime=time.time()
             if retval > 0:
 ## update metadata to indicate that Archive needs to start
-                updatemeta(conn, 'AR', loadelem, timetaken, logger)
+                updatemeta(conn, 'AR', loadelem, time.strftime("%H:%M:%S", time.gmtime(endtime-starttime)), logger)
                 inserttoarchive(conn, 'Tablette', 'RAW_VULSCAN_DATA',  'VULSCAN_ARCHIVE', logger)
 ## uodate meatadata to indicate thar archive is completed
-                updatemeta()
+                endtime=time.time()
+                updatemeta(conn, endstate, loadelem, time.strftime("%H:%M:%S", time.gmtime(endtime-starttime)), logger)
 
 ## now before you call to update assets and qid esure that the metadata status shows archive ended.
 ## then load assets and qid
-##          metarec = querymeta(conn, mconfig.file[1], loadelem, logger)
-##          if len(metarec) == 1 and (metarec[2] == 'A':
-                loadnewassets()
-                loadnewqids()
+                metarec = querymeta(conn, mconfig.file[1], loadelem, logger)
+                if len(metarec) == 1 and (metarec[2] == endstate:
+                    loadnewassets(conn,mconfig.file[1],logger)
+                    loadnewqids(conn,mconfig.file[1],logger)
 ## at the end update status to 'C'
-##              updatemeta()
+                    endtime=time.time()
+                    updatemeta(conn, 'C', loadelem, time.strftime("%H:%M:%S", time.gmtime(endtime-starttime)), logger)
 
 
 ##  after insertion into vulscan tables then new asset need to be loaded with unique asset id.
