@@ -413,7 +413,7 @@ rundate=datetime.strptime(mconfig.file[2],'%Y-%m-%d %H:%M:%S')
 
 metadict=[]
 if conn != -1:
-    rec=checkmeta(conn,'TEST1_Sev_4_5.csv', '2020-05-21 00:00:00', logger)
+    rec=checkmeta(conn,'TEST_Sev_4_5.csv', '2020-05-21 00:00:00', logger)
     if rec[0] == 'INSERTED':
         print("The METADATA got a new insert")
     elif rec[0] == 'RELOADING':
