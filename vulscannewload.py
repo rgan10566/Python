@@ -598,7 +598,7 @@ def loadnewassets(conn, schema, atable, stable, logger):
         rec=runquery(conn, sql,logger)
         etime=time.time()
         retval=1
-        logger.info("Inserted into Asset table from RAW table in %s time "%(time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
+        logger.info("Inserted into Asset table from RAW table in %s time %6d rows"%(time.strftime("%H:%M:%S", time.gmtime(etime-stime)),rec))
 
 
     except pymysql.Error as e:
@@ -638,7 +638,7 @@ def loadnewqids(conn, schema, qtable, stable, logger):
         rec=runquery(conn, sql,logger)
         etime=time.time()
         retval=1
-        logger.info("Inserted into QID table from RAW table in %s time "%(time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
+        logger.info("Inserted into QID table from RAW table in %s time %6d rows"%(time.strftime("%H:%M:%S", time.gmtime(etime-stime)),rec))
 
     except pymysql.Error as e:
         logger.error(sys._getframe().f_code.co_name+" Database Error in the insert into QID table")
@@ -732,8 +732,10 @@ def loadvulscan(conn, logger):
 ## now before you call to update assets and qid esure that the metadata status shows archive ended.
 ## then load assets and qid
                     metarec = querymeta(conn, mconfig.file[1], logger, loadelem)
-                    if len(metarec) == 1 and metarec[0][5] == endstatus:
+                    if len(metarec) == 1 and metarec[0][5] == endloadstatus:
+                        logger.info("starting to insert into Assets table")
                         loadnewassets(conn, 'tablette', 'ASSETS', 'RAW_VULSCAN_DATA', logger)
+                        logger.info("starting to insert into QID table")
                         loadnewqids(conn, 'tablette', 'QID', 'RAW_VULSCAN_DATA', logger)
 
 ## at the end update status to 'C'
@@ -746,6 +748,8 @@ def loadvulscan(conn, logger):
                         metareclist.insert(0,mconfig.file[1])
                         metareclist.insert(1,loadelem)
                         updatemeta(conn, metareclist, logger)
+                        logger.info("Load into all tables completed")
+
 
 
 ##  after insertion into vulscan tables then new asset need to be loaded with unique asset id.
