@@ -791,6 +791,10 @@ def loadvulscan(conn, logger):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+## Delete it after showing
+#secret='bbl-testdb'
+#region='us-west-2'
+#get_secret(secret,region)
 
 #create connection and use it by passing this to other functions
 conn=initconnect(mconfig.tablette,logger)
