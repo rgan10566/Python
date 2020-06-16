@@ -157,20 +157,17 @@ def initconnect(pconfig, logger):
             pass1=pconfig[2]
             # print("passed parameter")
 
-        connection = pymysql.connect(host=host1,
-                                port=port1,
-                                user=pconfig[1],
-                                password=pass1,
+        connection = pymysql.connect(host=host1, \
+                                port=port1, \
+                                user=user1, \
+                                password=pass1, \
                                 # password=pconfig[2],
                                 database=db1)
-#        connection = pymysql.connect(host='tablette.cluster-culomlubyiwb.us-west-2.rds.amazonaws.com',
-#                                port=3306,
-#                                user='appadmin',
-#                                password='BB_Tabl3tt3',
-#                                database='tablette')
+##        connection = pymysql.connect(host='tablette.cluster-culomlubyiwb.us-west-2.rds.amazonaws.com', port=3306, user='appadmin',password='BB_Tabl3tt3',database='tablette')
 
-    except:
-        logger.error(sys._getframe().f_code.co_name+"ERROR: Unexpected error: Could not connect to Aurora instance.")
+    except Exception as x:
+        logger.error(sys._getframe().f_code.co_name+" ERROR: Unexpected error: Could not connect to Aurora instance.")
+        logger.error(x)
         return -1
 
     return connection
@@ -192,8 +189,7 @@ def setlog(logfilename, level):
 ###############################################################################################################################################################
 def read_csv_file(fileloc='/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv'):
     # txtdf = pandas.read_csv('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv', parse_dates=['First Detected','Last Detected','Date Last Fixed'] )
-    txtdf = pandas.read_csv(fileloc,header='infer',skiprows=1)
-
+    txtdf = pandas.read_csv(fileloc,header='infer',skiprows=0)
     return txtdf
 
 ###############################################################################################################################################################
@@ -229,12 +225,12 @@ def inserttable(conn, table, data, logger):
                         cur.execute(query)
                     conn.commit()
         except pymysql.MySQLError as e:
-            logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in querying METADATA")
+            logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in querying METADATA")
             logger.error(e)
             logger.error(sql)
             return False
         except Exception as x:
-            logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in Run Querying. The statement did not execute")
+            logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in Run Querying. The statement did not execute")
             logger.error(x)
             return False
 
@@ -262,27 +258,27 @@ def runquery(conn, query, log):
                 conn.commit()
 
     except pymysql.ProgrammingError as e:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in querying METADATA")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in querying METADATA")
         logger.error(e)
         logger.error(sql)
     except pymysql.DataError as d:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in querying METADATA")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in querying METADATA")
         logger.error(d)
         logger.error(sql)
     except pymysql.IntegrityError as i:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in querying METADATA")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in querying METADATA")
         logger.error(i)
         logger.error(sql)
     except pymysql.OperationalError as o:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in querying METADATA")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in querying METADATA")
         logger.error(o)
         logger.error(sql)
     except pymysql.NotSupportedError as n:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in querying METADATA")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in querying METADATA")
         logger.error(n)
         logger.error(sql)
     except Exception as x:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in Run Querying. The statement did not execute")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in Run Querying. The statement did not execute")
         logger.error(x)
         logger.error(result)
 
@@ -321,11 +317,11 @@ def querymeta(conn, file, logger, loadelem=0):
             logger.info("Record found:"+metarec[0][1])
 
     except pymysql.Error as e:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in querying in function querydata")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in querying in function querydata")
         logger.error(e)
         logger.error(sql)
     except Exception as x:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in processing in querydata")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in processing in querydata")
         logger.error(x)
     return metarec
 
@@ -355,11 +351,11 @@ def insertmeta(conn, metadata, logger):
             else:
                 loadid = -1
     except pymysql.Error as e:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in insertion or querying in function insertmeta")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in insertion or querying in function insertmeta")
         logger.error(e)
         logger.error(sql)
     except Exception as x:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in processing in function insertmeta")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in processing in function insertmeta")
         logger.error(x)
     return loadid
 
@@ -382,12 +378,12 @@ def updatemeta(conn, metadata, logger):
         retval=metadata[1]
 
     except pymysql.Error as e:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in update in function updatemeta")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in update in function updatemeta")
         logger.error(e)
         logger.error(sql)
         retval=-1
     except Exception as x:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Unable to update metadata")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Unable to update metadata")
         logger.error(x)
         retval = -1
 
@@ -415,7 +411,7 @@ def reloadmeta(conn, file, scandate, loadelem, logger):
             r=runquery(conn,sql,logger)
             logger.info("INFO: delete from RAW_VULSCAN_DATA Executed: "+sql)
 
-            metareclist = [datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S'),scandate,'RS','R','0']
+            metareclist = [datetime.now().strftime("%Y-%m-%d %H:%M:%S"),scandate,'RS','R','0']
             metareclist.insert(0,file)
             metareclist.insert(1,loadelem)
 
@@ -423,16 +419,16 @@ def reloadmeta(conn, file, scandate, loadelem, logger):
             retval=updatemeta(conn, metareclist, logger)
 
         except pymysql.Error as e:
-            logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in delete or  update in function reloadmeta")
+            logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in delete or  update in function reloadmeta")
             logger.error(e)
             logger.error(sql)
             retval = -1
         except Exception as x:
-            logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Unable to delete from VULSCAN_ARCHIVE")
+            logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Unable to delete from VULSCAN_ARCHIVE")
             logger.error(x)
             retval = -1
     else:
-        logger.error(sys._getframe().f_code.co_name+"Warning: The file is already loaded and you choose not to Reload")
+        logger.error(sys._getframe().f_code.co_name+" Warning: The file is already loaded and you choose not to Reload")
         retval=-1
     return retval
 
@@ -452,7 +448,7 @@ def checkmeta(conn, file, scandate, logger):
         retval = dict()
         if not rec:
             logger.info("No Records found..loading file for the first time")
-            metareclist = [datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S'),scandate,'LS','I','0']
+            metareclist = [datetime.now().strftime("%Y-%m-%d %H:%M:%S"),scandate,'LS','I','0']
             metareclist.insert(0,file)
             loadid = insertmeta(conn, metareclist, logger)
             if loadid == -1:
@@ -481,12 +477,12 @@ def checkmeta(conn, file, scandate, logger):
                     logger.error("Error: File is partially loaded. Canot reprocess the file again.")
                     retval = ('PARTIALLY LOADED',0)
     except pymysql.Error as e:
-        logger.error(sys._getframe().f_code.co_name+"Error: Unexpected Error: Something went wrong in update, insert, querying in function reloadmeta")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in update, insert, querying in function reloadmeta")
         logger.error(e)
         logger.error(sql)
         retval = ('ERROR',-1)
     except Exception as x:
-        logger.error(sys._getframe().f_code.co_name+"ERROR: Unexpected Error: Something went wrong in the processing in function checkmeta")
+        logger.error(sys._getframe().f_code.co_name+" Error: Unexpected Error: Something went wrong in the processing in function checkmeta")
         logger.error(x)
         retval = ('ERROR',-1)
     return retval
@@ -509,17 +505,16 @@ def checkmeta(conn, file, scandate, logger):
 # last modified     : RG - 5/10/2020 - beautifying the function
 ###############################################################################################################################################################
 def insertvulscan(conn, schema, table, df, loadelem, logger):
-        try:
-# when can you start the insert? should there be a check for metadata status?
-            retval = 0
-            rundate=datetime.strftime(datetime.now()
-            with conn.cursor() as cur:
+        retval = 0
+        rundate=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        try:
+            with conn.cursor() as cur:
                     cols = ",".join([str(i) for i in df.columns.tolist()])
                     count=tcount=0
                     stime=time.time()
                     for i,row in df.iterrows():
-                         sql="insert into "+schema+"."+table + "("+cols+", rundate, loadid) VALUES (" + "%s,"*(len(row)-1) + "%s,'"+rundate+"','"+str(loadelem)+"')"
+                         sql="insert into "+schema+"."+table + "("+ cols + ", RUNDATE, LOADID) VALUES (" + "%s,"*(len(row)-1) + "%s,'"+rundate+"','"+str(loadelem)+"')"
 # print(sql,tuple(row))
                          cur.execute(sql,tuple(row))
                          count=count+1
@@ -530,17 +525,17 @@ def insertvulscan(conn, schema, table, df, loadelem, logger):
                              conn.commit()
                              count=0
                     conn.commit()
-                    reval=i+1
+                    retval=i+1
                     etime=time.time()
                     logger.info("Total processed %d records in %s time "%(i+1,time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
         except pymysql.Error as e:
-            logger.error(sys._getframe().f_code.co_name+"Database Error in the insert into vulscan table")
+            logger.error(sys._getframe().f_code.co_name+" Database Error in the insert into vulscan table")
             logger.error(e)
             logger.error(sql)
             retval = -1
-        except Exception as e:
-            logger.error(sys._getframe().f_code.co_name+"Logical or other Errors in the insert into vulscan table")
-            logger.error(e)
+        except Exception as x:
+            logger.error(sys._getframe().f_code.co_name+" Logical or other Errors in the insert into vulscan table")
+            logger.error(x)
             retval = -1
 
         return retval
@@ -559,20 +554,20 @@ def insertarchive(conn, schema, stable, ttable, logger):
 # when can we start insert into archive? should we check if the status on metadata is correct before insertsing
 # do we insert into archive directly after the insert into raw vulscan?
         stime=time.time()
-        sql="insert into "+schema+"."+ttable + " as select * from "+schema+"."+stable
+        sql="insert into "+schema+"."+ttable + " select * from "+schema+"."+stable
         rec=runquery(conn,sql,logger)
         etime=time.time()
         retval=1
-        logger.info("Total processed %d records in %s time "%(i+1,time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
+        logger.info("Inserted into Archive table from RAW table in %s time "%(time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
 
     except pymysql.Error as e:
-        logger.error(sys._getframe().f_code.co_name+"Database Error in the insert into vulscan table")
+        logger.error(sys._getframe().f_code.co_name+" Database Error in the insert into Archive table")
         logger.error(e)
         logger.error(sql)
         retval = -1
-    except Exception as e:
-        logger.error(sys._getframe().f_code.co_name+"Logical or other Errors in the insert into vulscan table")
-        logger.error(e)
+    except Exception as x:
+        logger.error(sys._getframe().f_code.co_name+" Logical or other Errors in the insert into Archive table")
+        logger.error(x)
         retval = -1
 
     return retval
@@ -598,21 +593,25 @@ def loadnewassets(conn, schema, atable, stable, logger):
         stime=time.time()
         collist=['IP','DNS','OS','TRACKINGMETHOD','RUNDATE']
         cols = ",".join(collist)
-        sql="insert into "+schema+"."+atable + "("+cols+")"+" as select "+cols+" from "+schema+"."+stable+" v where not exists (select ip from "+schema+"."+atable+" a where a.ip=v.ip)"
+        sql="insert into "+schema+"."+atable + "("+cols+")"+" select distinct "+cols+" from "+schema+"."+stable+" v where not exists (select ip from "+schema+"."+atable+" a where a.ip=v.ip)"
 #        rec=runquery(conn, "insert into tablette.ASSETS (ip, dns, OS, trackingmethod, scandate) select distinct ip,dns,os, trackingmethod, '"+rundate+"' from tablette.RAW_VULSCAN_DATA v where not exists (select ip from tablette.ASSETS a where a.ip=v.ip)",logger)
         rec=runquery(conn, sql,logger)
+        etime=time.time()
+        retval=1
+        logger.info("Inserted into Asset table from RAW table in %s time "%(time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
+
 
     except pymysql.Error as e:
-        logger.error(sys._getframe().f_code.co_name+"Database Error in the insert into vulscan table")
+        logger.error(sys._getframe().f_code.co_name+" Database Error in the insert into Asset table")
         logger.error(e)
         logger.error(sql)
         retval = -1
-    except Exception as e:
-        logger.error(sys._getframe().f_code.co_name+"Logical or other Errors in the insert into vulscan table")
-        logger.error(e)
+    except Exception as x:
+        logger.error(sys._getframe().f_code.co_name+" Logical or other Errors in the insert into Asset table")
+        logger.error(x)
         retval = -1
 
-    return 0
+    return retval
 
 ###############################################################################################################################################################
 # Purpose: This function loads the new qids.
@@ -628,7 +627,7 @@ def loadnewassets(conn, schema, atable, stable, logger):
 #          : - Calls insertvulcan function that inserts into RAW_VULSCAN_DATA
 # returns  : returns back the count of data inserted.
 ###############################################################################################################################################################
-def loadnewqids(conn, schema, qtable, stable, rundate, logger):
+def loadnewqids(conn, schema, qtable, stable, logger):
 ## identify any new qid that has come up.
 ## add them to the qid master table with title
     try:
@@ -637,16 +636,20 @@ def loadnewqids(conn, schema, qtable, stable, rundate, logger):
         cols = ",".join(collist)
         sql="INSERT INTO "+schema+"."+qtable+"("+cols+",STATUS)"+" select distinct "+cols+", 'New' from "+schema+"."+stable+" v where QID is not null and not exists (select qid from "+schema+"."+qtable+" a where a.qid=v.qid)"
         rec=runquery(conn, sql,logger)
+        etime=time.time()
+        retval=1
+        logger.info("Inserted into QID table from RAW table in %s time "%(time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
+
     except pymysql.Error as e:
-        logger.error(sys._getframe().f_code.co_name+"Database Error in the insert into vulscan table")
+        logger.error(sys._getframe().f_code.co_name+" Database Error in the insert into QID table")
         logger.error(e)
         logger.error(sql)
         retval = -1
-    except Exception as e:
-        logger.error(sys._getframe().f_code.co_name+"Logical or other Errors in the insert into vulscan table")
-        logger.error(e)
+    except Exception as x:
+        logger.error(sys._getframe().f_code.co_name+" Logical or other Errors in the insert into QID table")
+        logger.error(x)
         retval = -1
-    return 0
+    return retval
 
 ###############################################################################################################################################################
 # Purpose: This function loads the csv file into the RAW_VULSCAN_DATA table. it calls several other functions.
@@ -671,6 +674,7 @@ def loadvulscan(conn, logger):
 ## call read_csv_file to load into records in memory
     df=read_csv_file(file)
     df.fillna("",inplace = True)
+##    print(df)
 ##
 ##  Read from the mconfig file parameter
 
@@ -685,6 +689,7 @@ def loadvulscan(conn, logger):
     try:
         metareclist = []
         starttime=time.time()
+        todate=datetime.now()
         rval = checkmeta(conn, mconfig.file[1], scandate, logger)
         if rval[0] == 'INSERTED' or rval[0] == 'RELOADING':
             loadelem=rval[1]
@@ -699,37 +704,45 @@ def loadvulscan(conn, logger):
                 elif merarec[0][5] == 'RS':
                     endloadstatus='RE'
                     endstatus='R'
-                retval = insertvulscan(conn, 'Tablette', 'RAW_VULSCAN_DATA', df, loadelem, logger)
+                retval = insertvulscan(conn, 'tablette', 'RAW_VULSCAN_DATA', df, loadelem, logger)
                 endtime=time.time()
+                logger.info("Completed Insertion into Vulscan %6d rows inserted and now setting status to %s & %s"%(retval,endloadstatus,endstatus))
                 if retval > 0:
 ## update metadata to indicate that Archive needs to start and that Load is Ended.
-                  metareclist = [datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S'),scandate,endloadstatus,endstatus,time.strftime("%H:%M:%S", time.gmtime(endtime-starttime))]
-                  metareclist.insert(0,file)
-                  metareclist.insert(1,loadelem)
-                  updatemeta(conn, metareclist, logger)
+
+                    metareclist = [todate.strftime("%Y-%m-%d %H:%M:%S"),scandate,endloadstatus,endstatus,time.strftime("%H%M%S",time.gmtime(endtime-starttime))]
+                    metareclist.insert(0,file)
+                    metareclist.insert(1,loadelem)
+                    updatemeta(conn, metareclist, logger)
 ## insert into archive
-                  insertarchive(conn, 'Tablette', 'RAW_VULSCAN_DATA',  'VULSCAN_ARCHIVE', logger)
+                    insertarchive(conn, 'tablette', 'RAW_VULSCAN_DATA',  'VULSCAN_ARCHIVE', logger)
+
 ## change status and get new end time
-                  endloadstatus='AE'
-                  endtime=time.time()
+                    endloadstatus='AE'
+                    endtime=time.time()
+                    logger.info("Completed Insertion into Archive and now setting status to %s & %s"%(endloadstatus,endstatus))
+
 ## update meatadata to indicate that archive is completed
-                  metareclist = [datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S'),scandate,endloadstatus,endstatus,time.strftime("%H:%M:%S", time.gmtime(endtime-starttime))]
-                  metareclist.insert(0,mconfig.file[1])
-                  metareclist.insert(1,loadelem)
-                  updatemeta(conn, metareclist, logger)
+                    metareclist = [todate.strftime("%Y-%m-%d %H:%M:%S"),scandate,endloadstatus,endstatus,time.strftime("%H%M%S",time.gmtime(endtime-starttime))]
+                    metareclist.insert(0,mconfig.file[1])
+                    metareclist.insert(1,loadelem)
+                    updatemeta(conn, metareclist, logger)
 
 ## update meatadata to indicate that archive is completed
 ## now before you call to update assets and qid esure that the metadata status shows archive ended.
 ## then load assets and qid
-                  metarec = querymeta(conn, mconfig.file[1], logger, loadelem)
-                  if len(metarec) == 1 and metarec[0][5] == endstatus:
-                        loadnewassets(conn,mconfig.file[1],logger)
-                        loadnewqids(conn,mconfig.file[1],logger)
+                    metarec = querymeta(conn, mconfig.file[1], logger, loadelem)
+                    if len(metarec) == 1 and metarec[0][5] == endstatus:
+                        loadnewassets(conn, 'tablette', 'ASSETS', 'RAW_VULSCAN_DATA', logger)
+                        loadnewqids(conn, 'tablette', 'QID', 'RAW_VULSCAN_DATA', logger)
+
 ## at the end update status to 'C'
                         endloadstatus='FL'
                         endstatus='C'
                         endtime=time.time()
-                        metareclist = [datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S'),scandate,endloadstatus,endstatus,endtime-starttime]
+                        logger.info("Completed Insertion into asets and qid and now setting status to %s & %s"%(endloadstatus,endstatus))
+
+                        metareclist = [todate.strftime("%Y-%m-%d %H:%M:%S"),scandate,endloadstatus,endstatus,time.strftime("%H%M%S",time.gmtime(endtime-starttime))]
                         metareclist.insert(0,mconfig.file[1])
                         metareclist.insert(1,loadelem)
                         updatemeta(conn, metareclist, logger)
@@ -742,14 +755,14 @@ def loadvulscan(conn, logger):
         else:
             logger.warning("Loadvulscan: Unable to load...please check metadata")
 
-   except pymysql.Error as e:
-        logger.error(sys._getframe().f_code.co_name+"Database Error in the insert into vulscan table")
+    except pymysql.Error as e:
+        logger.error(sys._getframe().f_code.co_name+" Database Error in the loading vulscan procedure")
         logger.error(e)
         logger.error(sql)
         retval = -1
-    except Exception as e:
-        logger.error(sys._getframe().f_code.co_name+"Logical or other Errors in the insert into vulscan table")
-        logger.error(e)
+    except Exception as x:
+        logger.error(sys._getframe().f_code.co_name+" Logical or other Errors in the loading vulscan procedure")
+        logger.error(x)
         retval = -1
 
     return 1
@@ -811,7 +824,7 @@ if conn != -1:
 
 #this checks the number of rows loaded now and prints it.
     rec = runquery(conn, 'select count(1) from '+'RAW_VULSCAN_DATA', logger)
-    logger.INFO("Total number of records in RAW_VULSCAN_DATA is %10d"%rec[0])
+    logger.info("Total number of records in RAW_VULSCAN_DATA is %10d"%rec[0])
 
 #create table LATEST_VULSCAN from the uploaded table
     # rec=runquery(conn,'drop table if exists tablette.LATEST_VULSCAN',logger)
@@ -820,6 +833,6 @@ if conn != -1:
 
 else:
 
-    logger.WARNING(sys._getframe().f_code.co_name+" Connection not establised..Exiting")
+    logger.warning(sys._getframe().f_code.co_name+" Connection not establised..Exiting")
 
 conn.close()
