@@ -815,6 +815,9 @@ conn=initconnect(mconfig.tablette,logger)
 # print(file)
 # print(rundate)
 
+
+
+
 if conn != -1:
 # read the CSV file and insert into table
     # Old Redundat Code
