@@ -591,14 +591,17 @@ def loadnewassets(conn, schema, atable, stable, logger):
 ## report the list of newly added ASSETS
     try:
         stime=time.time()
+        sql="UPDATE "+schema+"."+atable+" a INNER JOIN tablette.METADATA b on a.LOADID=b.LOADID set a.SCANDATE=b.SCANDATE, a.STATUS='Reported' where a.STATUS='New'"
+        rec=runquery(conn, sql,logger)
         collist=['IP','DNS','OS','TRACKINGMETHOD','RUNDATE']
         cols = ",".join(collist)
-        sql="insert into "+schema+"."+atable + "("+cols+")"+" select distinct "+cols+" from "+schema+"."+stable+" v where not exists (select ip from "+schema+"."+atable+" a where a.ip=v.ip)"
+        sql="insert into "+schema+"."+atable + "("+cols+",STATUS)"+" select distinct "+cols+",'New' from "+schema+"."+stable+" v where not exists (select ip from "+schema+"."+atable+" a where a.ip=v.ip)"
 #        rec=runquery(conn, "insert into tablette.ASSETS (ip, dns, OS, trackingmethod, scandate) select distinct ip,dns,os, trackingmethod, '"+rundate+"' from tablette.RAW_VULSCAN_DATA v where not exists (select ip from tablette.ASSETS a where a.ip=v.ip)",logger)
         rec=runquery(conn, sql,logger)
         etime=time.time()
         retval=1
-        logger.info("Inserted into Asset table from RAW table in %s time %6d rows"%(time.strftime("%H:%M:%S", time.gmtime(etime-stime)),rec))
+        print(rec)
+        logger.info("Inserted into Asset table from RAW table in %s time"%(time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
 
 
     except pymysql.Error as e:
@@ -632,13 +635,16 @@ def loadnewqids(conn, schema, qtable, stable, logger):
 ## add them to the qid master table with title
     try:
         stime=time.time()
-        collist=['QID','TITLE','VULNSTATUS','TYPE','SEVERITY','CVEID','VENDORREFERENCE','PCIVULN','CATEGORY','THREAT','IMPACT','SOLUTION','RUNDATE']
+# Before loading QID update previous New to Old STATUS
+        sql="UPDATE "+schema+"."+qtable+" a INNER JOIN tablette.METADATA b on a.LOADID=b.LOADID set a.SCANDATE=b.SCANDATE, a.STATUS='Reported' where a.STATUS='New'"
+        rec=runquery(conn, sql,logger)
+        collist=['QID','TITLE','VULNSTATUS','TYPE','SEVERITY','CVEID','VENDORREFERENCE','PCIVULN','CATEGORY','THREAT','IMPACT','SOLUTION','RUNDATE','LOADID']
         cols = ",".join(collist)
         sql="INSERT INTO "+schema+"."+qtable+"("+cols+",STATUS)"+" select distinct "+cols+", 'New' from "+schema+"."+stable+" v where QID is not null and not exists (select qid from "+schema+"."+qtable+" a where a.qid=v.qid)"
         rec=runquery(conn, sql,logger)
         etime=time.time()
         retval=1
-        logger.info("Inserted into QID table from RAW table in %s time %6d rows"%(time.strftime("%H:%M:%S", time.gmtime(etime-stime)),rec))
+        logger.info("Inserted into QID table from RAW table in %s time"%(time.strftime("%H:%M:%S", time.gmtime(etime-stime))))
 
     except pymysql.Error as e:
         logger.error(sys._getframe().f_code.co_name+" Database Error in the insert into QID table")
