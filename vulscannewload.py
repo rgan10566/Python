@@ -163,7 +163,7 @@ def initconnect(pconfig, logger):
                                 password=pass1, \
                                 # password=pconfig[2],
                                 database=db1)
-##        connection = pymysql.connect(host='tablette.cluster-culomlubyiwb.us-west-2.rds.amazonaws.com', port=3306, user='appadmin',password='BB_Tabl3tt3',database='tablette')
+        # connection = pymysql.connect(host='tablette.cluster-culomlubyiwb.us-west-2.rds.amazonaws.com',port=3306, user='appadmin',password='BB_Tabl3tt3',database='tablette')
 
     except Exception as x:
         logger.error(sys._getframe().f_code.co_name+" ERROR: Unexpected error: Could not connect to Aurora instance.")
