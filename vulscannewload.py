@@ -189,7 +189,13 @@ def setlog(logfilename, level):
 ###############################################################################################################################################################
 def read_csv_file(fileloc='/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv'):
     # txtdf = pandas.read_csv('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv', parse_dates=['First Detected','Last Detected','Date Last Fixed'] )
-    txtdf = pandas.read_csv(fileloc,header='infer',skiprows=0)
+    # txtdf = pandas.read_csv(fileloc,header='infer',skiprows=0)
+
+
+    txtdf = pandas.read_csv(fileloc,header='infer',skiprows=0,parse_dates=['FirstDetected','LastDetected','DateLastFixed'])
+    txtdf['FirstDetected'] = txtdf['FirstDetected'].astype(str)
+    txtdf['LastDetected'] = txtdf['LastDetected'].astype(str)
+    txtdf['DateLastFixed'] = txtdf['DateLastFixed'].astype(str)
     return txtdf
 
 ###############################################################################################################################################################

@@ -178,7 +178,7 @@ def create_latest_scan():
 ###########################
 def read_csv_file(fileloc='/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv'):
     # txtdf = pandas.read_csv('/Users/rganesan/Documents/BusinessDocs/BBody/Vulnerability-Security/BB_Scan_Report_20200203.csv', parse_dates=['First Detected','Last Detected','Date Last Fixed'] )
-    txtdf = pandas.read_csv(fileloc,header='infer',skiprows=1)
+    txtdf = pandas.read_csv(fileloc,header='infer',skiprows=1,parse_dates=['FirstDetected','LastDetected','DateLastFixed'])
 
     return txtdf
 
